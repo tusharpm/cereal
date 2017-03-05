@@ -33,31 +33,31 @@ endif()
 list(REMOVE_ITEM TESTS ${SPECIAL_TESTS})
 
 add_library(doctest_main STATIC doctest_main.cpp)
-if((NOT MSVC) AND (CMAKE_SIZEOF_VOID_P EQUAL 8) AND (NOT SKIP_PORTABILITY_TEST))
+# Build all of the non-special tests
+set(TEST_PROGRAM "test_all")
+add_executable(${TEST_PROGRAM} ${TESTS})
+target_link_libraries(${TEST_PROGRAM} ${CEREAL_THREAD_LIBS} doctest_main)
+
+# If we are on a 64-bit machine, create an extra 32-bit version of the test if portability testing is enabled
+if((NOT MSVC) AND (${CMAKE_SIZEOF_VOID_P} EQUAL 8) AND (NOT SKIP_PORTABILITY_TEST))
   add_library(doctest_main_32 STATIC doctest_main.cpp)
   set_target_properties(doctest_main_32 PROPERTIES
     COMPILE_FLAGS "-m32")
+
+  set(TEST_PROGRAM_32 "${TEST_PROGRAM}_32")
+  add_executable(${TEST_PROGRAM_32} ${TESTS})
+  set_target_properties(${TEST_PROGRAM_32} PROPERTIES
+    COMPILE_FLAGS "-m32" LINK_FLAGS "-m32")
+  target_link_libraries(${TEST_PROGRAM_32} doctest_main_32)
 endif()
 
-# Build all of the non-special tests
 foreach(TEST_SOURCE ${TESTS})
-
   string(REPLACE ".cpp" "" TEST_TARGET "${TEST_SOURCE}")
-  set(TEST_TARGET "test_${TEST_TARGET}")
 
-  add_executable(${TEST_TARGET} ${TEST_SOURCE})
-  target_link_libraries(${TEST_TARGET} ${CEREAL_THREAD_LIBS} doctest_main)
-  add_test("${TEST_TARGET}" "${TEST_TARGET}")
-
-  # If we are on a 64-bit machine, create an extra 32-bit version of the test if portability testing is enabled
-  if((NOT MSVC) AND (${CMAKE_SIZEOF_VOID_P} EQUAL 8) AND (NOT SKIP_PORTABILITY_TEST))
-    add_executable(${TEST_TARGET}_32 ${TEST_SOURCE})
-    set_target_properties(${TEST_TARGET}_32 PROPERTIES
-      COMPILE_FLAGS "-m32" LINK_FLAGS "-m32")
-    target_link_libraries(${TEST_TARGET}_32 doctest_main_32)
-    add_test("${TEST_TARGET}_32" "${TEST_TARGET}_32")
+  add_test("${TEST_TARGET}" "${TEST_PROGRAM}" "--test-suite=${TEST_TARGET}")
+  if(TEST_PROGRAM_32)
+    add_test("${TEST_TARGET}_32" "${TEST_PROGRAM_32}" "--test-suite=${TEST_TARGET}")
   endif()
-
 endforeach()
 
 # Add the valgrind target
