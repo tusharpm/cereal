@@ -60,30 +60,24 @@ foreach(TEST_SOURCE ${TESTS})
   endif()
 endforeach()
 
-# Add the valgrind target
 if(NOT MSVC)
+  # Add the valgrind target
   add_custom_target(valgrind
     COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/run_valgrind.sh")
 
-  # Add the coverage target
-  add_custom_target(coverage)
-  add_custom_command(TARGET coverage
-    COMMAND "${CMAKE_SOURCE_DIR}/scripts/updatecoverage.sh" ${CMAKE_SOURCE_DIR}
-    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/coverage")
-
   # add tests to coverage
-  foreach(TEST_SOURCE ${TESTS})
-    string(REPLACE ".cpp" "" COVERAGE_TARGET "${TEST_SOURCE}")
-    set(COVERAGE_TARGET "coverage_${COVERAGE_TARGET}")
+  set(COVERAGE_TARGET "coverage_all")
+  add_executable(${COVERAGE_TARGET} EXCLUDE_FROM_ALL ${TESTS})
+  set_target_properties(${COVERAGE_TARGET} PROPERTIES COMPILE_FLAGS "-coverage")
+  set_target_properties(${COVERAGE_TARGET} PROPERTIES LINK_FLAGS "-coverage")
+  set_target_properties(${COVERAGE_TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/coverage")
+  target_link_libraries(${COVERAGE_TARGET} ${CEREAL_THREAD_LIBS} doctest_main)
 
-    add_dependencies(coverage ${COVERAGE_TARGET})
-
-    add_executable(${COVERAGE_TARGET} EXCLUDE_FROM_ALL ${TEST_SOURCE})
-    set_target_properties(${COVERAGE_TARGET} PROPERTIES COMPILE_FLAGS "-coverage")
-    set_target_properties(${COVERAGE_TARGET} PROPERTIES LINK_FLAGS "-coverage")
-    set_target_properties(${COVERAGE_TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/coverage")
-    target_link_libraries(${COVERAGE_TARGET} ${CEREAL_THREAD_LIBS} doctest_main)
-  endforeach()
+  # Add the coverage target
+  add_custom_target(coverage
+    COMMAND "${CMAKE_SOURCE_DIR}/scripts/updatecoverage.sh" ${CMAKE_SOURCE_DIR}
+    DEPENDS ${COVERAGE_TARGET}
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/coverage")
 endif(NOT MSVC)
 
 if(NOT CMAKE_VERSION VERSION_LESS 3.0)
